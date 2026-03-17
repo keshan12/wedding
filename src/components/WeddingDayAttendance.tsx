@@ -14,11 +14,13 @@ interface WeddingDayAttendanceProps {
 export const WeddingDayAttendance: React.FC<WeddingDayAttendanceProps> = ({ onBack }) => {
   const [attendees, setAttendees] = useState<WeddingDayAttendee[]>([]);
   const [formData, setFormData] = useState({ name: '', expectedCount: 1 });
+  const [bulkText, setBulkText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [editingCounts, setEditingCounts] = useState<Record<string, number>>({});
   const [showModal, setShowModal] = useState(false);
+  const [isBulkMode, setIsBulkMode] = useState(false);
 
   useEffect(() => {
     loadAttendees();
@@ -64,6 +66,77 @@ export const WeddingDayAttendance: React.FC<WeddingDayAttendanceProps> = ({ onBa
       await loadAttendees();
     } catch (err) {
       setError('Failed to add attendee');
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBulkAddAttendees = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!bulkText.trim()) {
+      setError('Please enter attendee data');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const lines = bulkText.trim().split('\n').filter(line => line.trim());
+      const newAttendees: Omit<WeddingDayAttendee, 'id'>[] = [];
+      const errors: string[] = [];
+
+      lines.forEach((line, index) => {
+        const parts = line.split(',').map(p => p.trim());
+        if (parts.length < 2) {
+          errors.push(`Line ${index + 1}: Expected format "Name, Count"`);
+          return;
+        }
+
+        const name = parts[0].trim();
+        const count = parseInt(parts[1]);
+
+        if (!name) {
+          errors.push(`Line ${index + 1}: Name cannot be empty`);
+          return;
+        }
+
+        if (isNaN(count) || count < 1) {
+          errors.push(`Line ${index + 1}: Count must be a valid number`);
+          return;
+        }
+
+        newAttendees.push({
+          name,
+          expectedCount: count,
+          attended: false,
+          actualCount: count,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      });
+
+      if (errors.length > 0) {
+        setError(errors.join('\n'));
+        return;
+      }
+
+      if (newAttendees.length === 0) {
+        setError('No valid attendees found');
+        return;
+      }
+
+      for (const attendee of newAttendees) {
+        await addWeddingDayAttendee(attendee);
+      }
+
+      setBulkText('');
+      setError('');
+      setShowModal(false);
+      setIsBulkMode(false);
+      await loadAttendees();
+    } catch (err) {
+      setError('Failed to add attendees');
       console.error(err);
     } finally {
       setIsSubmitting(false);
@@ -293,60 +366,126 @@ export const WeddingDayAttendance: React.FC<WeddingDayAttendanceProps> = ({ onBa
       {/* Add Attendee Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Add New Attendee</h2>
-            <form onSubmit={handleAddAttendee} className="space-y-4">
-              <div>
-                <label htmlFor="modal-name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Attendee Name
-                </label>
-                <input
-                  id="modal-name"
-                  type="text"
-                  placeholder="Enter attendee name"
-                  title="Attendee name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
-                  disabled={isSubmitting}
-                />
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {isBulkMode ? 'Bulk Add Attendees' : 'Add New Attendee'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsBulkMode(!isBulkMode)}
+                className="text-xs px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+                disabled={isSubmitting}
+              >
+                {isBulkMode ? 'Single Add' : 'Bulk Add'}
+              </button>
+            </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm whitespace-pre-wrap">
+                {error}
               </div>
-              <div>
-                <label htmlFor="modal-count" className="block text-sm font-medium text-gray-700 mb-2">
-                  Expected Count
-                </label>
-                <input
-                  id="modal-count"
-                  type="number"
-                  min="1"
-                  title="Expected attendee count"
-                  value={formData.expectedCount}
-                  onChange={(e) => setFormData({ ...formData, expectedCount: parseInt(e.target.value) || 1 })}
-                  disabled={isSubmitting}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 disabled:bg-gray-400 transition-colors font-medium"
-                >
-                  {isSubmitting ? 'Adding...' : 'Add Attendee'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    setFormData({ name: '', expectedCount: 1 });
-                  }}
-                  disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-900 rounded-lg hover:bg-gray-400 disabled:bg-gray-200 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+            )}
+
+            {!isBulkMode ? (
+              <form onSubmit={handleAddAttendee} className="space-y-4">
+                <div>
+                  <label htmlFor="modal-name" className="block text-sm font-medium text-gray-700 mb-2">
+                    Attendee Name
+                  </label>
+                  <input
+                    id="modal-name"
+                    type="text"
+                    placeholder="Enter attendee name"
+                    title="Attendee name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="modal-count" className="block text-sm font-medium text-gray-700 mb-2">
+                    Expected Count
+                  </label>
+                  <input
+                    id="modal-count"
+                    type="number"
+                    min="1"
+                    title="Expected attendee count"
+                    value={formData.expectedCount}
+                    onChange={(e) => setFormData({ ...formData, expectedCount: parseInt(e.target.value) || 1 })}
+                    disabled={isSubmitting}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex-1 px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 disabled:bg-gray-400 transition-colors font-medium"
+                  >
+                    {isSubmitting ? 'Adding...' : 'Add Attendee'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModal(false);
+                      setFormData({ name: '', expectedCount: 1 });
+                      setError('');
+                    }}
+                    disabled={isSubmitting}
+                    className="flex-1 px-4 py-2 bg-gray-300 text-gray-900 rounded-lg hover:bg-gray-400 disabled:bg-gray-200 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleBulkAddAttendees} className="space-y-4">
+                <div>
+                  <label htmlFor="bulk-text" className="block text-sm font-medium text-gray-700 mb-2">
+                    Attendees (Format: Name, Count)
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Enter one attendee per line. Example:<br />
+                    John Doe, 2<br />
+                    Jane Smith, 1
+                  </p>
+                  <textarea
+                    id="bulk-text"
+                    placeholder="John Doe, 2&#10;Jane Smith, 1&#10;Bob Johnson, 3"
+                    value={bulkText}
+                    onChange={(e) => setBulkText(e.target.value)}
+                    disabled={isSubmitting}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono text-sm resize-none"
+                    rows={8}
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex-1 px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 disabled:bg-gray-400 transition-colors font-medium"
+                  >
+                    {isSubmitting ? 'Adding...' : 'Add All'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModal(false);
+                      setBulkText('');
+                      setError('');
+                      setIsBulkMode(false);
+                    }}
+                    disabled={isSubmitting}
+                    className="flex-1 px-4 py-2 bg-gray-300 text-gray-900 rounded-lg hover:bg-gray-400 disabled:bg-gray-200 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
