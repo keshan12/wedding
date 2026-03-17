@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, MessageSquare, CheckCircle, XCircle, Search, Download } from 'lucide-react';
+import { Users, Calendar, MessageSquare, CheckCircle, XCircle, Search, Download, Clock } from 'lucide-react';
 import { AttendanceSubmission } from '../types/attendance';
 import { getSubmissions } from '../utils/storage';
+import { WeddingDayAttendance } from './WeddingDayAttendance';
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -11,6 +12,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   const [submissions, setSubmissions] = useState<AttendanceSubmission[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'attending' | 'not-attending'>('all');
+  const [showWeddingDayView, setShowWeddingDayView] = useState(false);
 
   useEffect(() => {
     const loadSubmissions = async () => {
@@ -24,6 +26,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
     const interval = setInterval(loadSubmissions, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  if (showWeddingDayView) {
+    return <WeddingDayAttendance onBack={() => setShowWeddingDayView(false)} />;
+  }
 
   const filteredSubmissions = submissions.filter(submission => {
     const matchesSearch = submission.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -68,24 +74,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 sm:py-6 gap-4 sm:gap-0">
             <div className="flex items-center">
               <Users className="w-8 h-8 text-rose-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">Wedding Admin Panel</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Wedding Admin Panel</h1>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto flex-wrap">
+              <button
+                onClick={() => setShowWeddingDayView(true)}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm sm:text-base whitespace-nowrap"
+                title="Manage wedding day attendance"
+              >
+                <Clock className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Wedding Day Tracking</span>
+                <span className="sm:hidden">Tracking</span>
+              </button>
               <button
                 onClick={exportData}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base whitespace-nowrap"
+                title="Export attendance data to CSV"
               >
-                <Download className="w-4 h-4 mr-2" />
-                Export CSV
+                <Download className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Export CSV</span>
+                <span className="sm:hidden">Export</span>
               </button>
               <button
                 onClick={onLogout}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm sm:text-base whitespace-nowrap"
+                title="Logout from admin panel"
               >
-                Logout
+                <span className="hidden sm:inline">Logout</span>
+                <span className="sm:hidden">Exit</span>
               </button>
             </div>
           </div>
@@ -172,6 +191,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
               </div>
             </div>
             <select
+              title="Filter responses by attendance status"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as any)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
