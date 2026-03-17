@@ -14,6 +14,7 @@ export interface WeddingDayAttendee {
   expectedCount: number;
   attended: boolean;
   actualCount: number;
+  giftAmount: number;
   createdAt: string;
   updatedAt: string;
 }

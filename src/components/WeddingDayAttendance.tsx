@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ChevronLeft } from 'lucide-react';
+import { Plus, ChevronLeft, DollarSign } from 'lucide-react';
 import { WeddingDayAttendee } from '../types/attendance';
 import {
   addWeddingDayAttendee,
   getWeddingDayAttendees,
   updateWeddingDayAttendee
 } from '../utils/storage';
+import { GiftTracking } from './GiftTracking';
 
 interface WeddingDayAttendanceProps {
   onBack: () => void;
@@ -21,6 +22,7 @@ export const WeddingDayAttendance: React.FC<WeddingDayAttendanceProps> = ({ onBa
   const [editingCounts, setEditingCounts] = useState<Record<string, number>>({});
   const [showModal, setShowModal] = useState(false);
   const [isBulkMode, setIsBulkMode] = useState(false);
+  const [showGiftTracking, setShowGiftTracking] = useState(false);
 
   useEffect(() => {
     loadAttendees();
@@ -55,6 +57,7 @@ export const WeddingDayAttendance: React.FC<WeddingDayAttendanceProps> = ({ onBa
         expectedCount: formData.expectedCount,
         attended: false,
         actualCount: formData.expectedCount,
+        giftAmount: 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -111,6 +114,7 @@ export const WeddingDayAttendance: React.FC<WeddingDayAttendanceProps> = ({ onBa
           expectedCount: count,
           attended: false,
           actualCount: count,
+          giftAmount: 0,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
@@ -197,12 +201,16 @@ export const WeddingDayAttendance: React.FC<WeddingDayAttendanceProps> = ({ onBa
     );
   }
 
+  if (showGiftTracking) {
+    return <GiftTracking onBack={() => setShowGiftTracking(false)} />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
+          <div className="flex items-center justify-between py-6 gap-4 flex-wrap">
             <div className="flex items-center">
               <button
                 onClick={onBack}
@@ -213,14 +221,25 @@ export const WeddingDayAttendance: React.FC<WeddingDayAttendanceProps> = ({ onBa
               </button>
               <h1 className="text-2xl font-bold text-gray-900">Wedding Day Attendance</h1>
             </div>
-            <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors"
-              title="Add new attendee"
-            >
-              <Plus className="w-4 h-4" />
-              Add Attendee
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowGiftTracking(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                title="Track gift amounts"
+              >
+                <DollarSign className="w-4 h-4" />
+                <span className="hidden sm:inline">Gifts</span>
+              </button>
+              <button
+                onClick={() => setShowModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors"
+                title="Add new attendee"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Add Attendee</span>
+                <span className="sm:hidden">Add</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
